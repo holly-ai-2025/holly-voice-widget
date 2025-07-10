@@ -1,63 +1,70 @@
-import './style.css';
+// Hide everything (invisible widget)
+document.body.style.display = 'none';
 
-const app = document.querySelector('#app');
-app.innerHTML = `
-  <div>
-    <h1>🎤 Mic Test</h1>
-    <button id="startBtn">Start Listening</button>
-    <button id="stopBtn" disabled>Stop Listening</button>
-    <p id="status">Click start to begin</p>
-    <p id="transcript"></p>
-  </div>
-`;
-
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const transcriptEl = document.getElementById('transcript');
-const statusEl = document.getElementById('status');
-
+// Setup SpeechRecognition
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 
-if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-  statusEl.textContent = 'SpeechRecognition not supported in this browser.';
-  startBtn.disabled = true;
-} else {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
   recognition = new SpeechRecognition();
   recognition.continuous = true;
-  recognition.interimResults = true;
+  recognition.interimResults = false;
   recognition.lang = 'en-US';
-
-  recognition.onstart = () => {
-    statusEl.textContent = 'Listening...';
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-  };
-
-  recognition.onend = () => {
-    statusEl.textContent = 'Stopped.';
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-  };
-
-  recognition.onerror = (event) => {
-    console.error('Recognition error:', event.error);
-    statusEl.textContent = `Error: ${event.error}`;
-  };
 
   recognition.onresult = (event) => {
     let transcript = '';
     for (let i = event.resultIndex; i < event.results.length; i++) {
       transcript += event.results[i][0].transcript;
     }
-    transcriptEl.textContent = transcript;
+
+    // ✅ Send transcript to Wix (parent window)
+    window.parent.postMessage(
+      {
+        type: 'holly-transcript',
+        transcript: transcript.trim(),
+      },
+      '*'
+    );
   };
 
-  startBtn.addEventListener('click', () => {
-    recognition.start();
-  });
+  recognition.onerror = (event) => {
+    console.error('Speech recognition error:', event.error);
+    window.parent.postMessage(
+      {
+        type: 'holly-error',
+        error: event.error,
+      },
+      '*'
+    );
+  };
 
-  stopBtn.addEventListener('click', () => {
-    recognition.stop();
-  });
+  recognition.onend = () => {
+    window.parent.postMessage(
+      {
+        type: 'holly-status',
+        status: 'stopped',
+      },
+      '*'
+    );
+  };
+} else {
+  console.warn('SpeechRecognition not supported.');
+  window.parent.postMessage(
+    {
+      type: 'holly-error',
+      error: 'SpeechRecognition not supported in this browser.',
+    },
+    '*'
+  );
 }
+
+// 🔁 Listen for control messages from Wix
+window.addEventListener('message', (event) => {
+  const { data } = event;
+  if (data === 'start-holly-listening' && recognition) {
+    recognition.start();
+  }
+  if (data === 'stop-holly-listening' && recognition) {
+    recognition.stop();
+  }
+});
