@@ -1,7 +1,7 @@
-// Hide everything (invisible widget)
+// 🔒 Hide visual interface (this is a headless STT widget)
 document.body.style.display = 'none';
 
-// Setup SpeechRecognition
+// 🎙️ Setup SpeechRecognition
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 
@@ -17,54 +17,55 @@ if (SpeechRecognition) {
       transcript += event.results[i][0].transcript;
     }
 
-    // ✅ Send transcript to Wix (parent window)
+    // ✅ Send transcript to Wix parent
     window.parent.postMessage(
       {
-        type: 'holly-transcript',
-        transcript: transcript.trim(),
+        transcribedText: transcript.trim()
       },
       '*'
     );
   };
 
   recognition.onerror = (event) => {
-    console.error('Speech recognition error:', event.error);
+    console.error('🎤 Speech recognition error:', event.error);
     window.parent.postMessage(
       {
-        type: 'holly-error',
-        error: event.error,
+        sttError: event.error
       },
       '*'
     );
   };
 
   recognition.onend = () => {
+    console.log('🎤 Recognition ended.');
     window.parent.postMessage(
       {
-        type: 'holly-status',
-        status: 'stopped',
+        sttStatus: 'stopped'
       },
       '*'
     );
   };
 } else {
-  console.warn('SpeechRecognition not supported.');
+  console.warn('🚫 SpeechRecognition not supported.');
   window.parent.postMessage(
     {
-      type: 'holly-error',
-      error: 'SpeechRecognition not supported in this browser.',
+      sttError: 'SpeechRecognition not supported in this browser.'
     },
     '*'
   );
 }
 
-// 🔁 Listen for control messages from Wix
+// 🔁 Listen for messages from parent (Wix)
 window.addEventListener('message', (event) => {
-  const { data } = event;
-  if (data === 'start-holly-listening' && recognition) {
+  const { action } = event.data || {};
+
+  if (action === 'startListening' && recognition) {
+    console.log('🎙️ Received: startListening');
     recognition.start();
   }
-  if (data === 'stop-holly-listening' && recognition) {
+
+  if (action === 'stopListening' && recognition) {
+    console.log('🛑 Received: stopListening');
     recognition.stop();
   }
 });
