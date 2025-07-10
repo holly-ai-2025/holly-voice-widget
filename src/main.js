@@ -1,7 +1,6 @@
-// 🔒 Hide visual interface (this is a headless STT widget)
+// 🔒 Hide visual interface (headless STT widget)
 document.body.style.display = 'none';
 
-// 🎙️ Setup SpeechRecognition
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 
@@ -11,13 +10,20 @@ if (SpeechRecognition) {
   recognition.interimResults = false;
   recognition.lang = 'en-US';
 
+  console.log('✅ SpeechRecognition supported, initialized.');
+
+  recognition.onstart = () => {
+    console.log('🎤 Recognition started...');
+  };
+
   recognition.onresult = (event) => {
+    console.log('🧠 onresult triggered');
     let transcript = '';
     for (let i = event.resultIndex; i < event.results.length; i++) {
       transcript += event.results[i][0].transcript;
     }
+    console.log('🗣️ Transcript:', transcript);
 
-    // ✅ Send transcript to Wix parent
     window.parent.postMessage(
       {
         transcribedText: transcript.trim()
@@ -27,7 +33,7 @@ if (SpeechRecognition) {
   };
 
   recognition.onerror = (event) => {
-    console.error('🎤 Speech recognition error:', event.error);
+    console.error('❌ Recognition error:', event.error);
     window.parent.postMessage(
       {
         sttError: event.error
@@ -37,7 +43,7 @@ if (SpeechRecognition) {
   };
 
   recognition.onend = () => {
-    console.log('🎤 Recognition ended.');
+    console.log('🛑 Recognition ended.');
     window.parent.postMessage(
       {
         sttStatus: 'stopped'
@@ -55,17 +61,17 @@ if (SpeechRecognition) {
   );
 }
 
-// 🔁 Listen for messages from parent (Wix)
+// 🔁 Listen for messages from parent
 window.addEventListener('message', (event) => {
   const { action } = event.data || {};
 
   if (action === 'startListening' && recognition) {
-    console.log('🎙️ Received: startListening');
+    console.log('📩 Received: startListening');
     recognition.start();
   }
 
   if (action === 'stopListening' && recognition) {
-    console.log('🛑 Received: stopListening');
+    console.log('📩 Received: stopListening');
     recognition.stop();
   }
 });
